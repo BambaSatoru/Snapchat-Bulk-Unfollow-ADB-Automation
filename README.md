@@ -26,7 +26,7 @@ Instead, this script uses **fixed-coordinate tapping** via `adb shell input tap 
 2. Wait briefly for the "Remove?" confirmation popup
 3. Tap "Yes" to confirm
 4. Repeat
-5. Every N removals, force-close and relaunch Snapchat, then re-navigate back to the Edit screen — this works around occasional in-app glitches/freezes
+5. Every N removals (30 by default), force-close and relaunch Snapchat, then re-navigate back to the Edit screen — this works around occasional in-app glitches/freezes
 
 ---
 
@@ -66,7 +66,7 @@ You should see your device listed as `device` (not `unauthorized` or empty).
 ```
 adb shell wm size
 ```
-The coordinates in this script are calibrated for **1080x2400**. If your resolution differs, see [Calibrating coordinates](#calibrating-coordinates-for-your-phone) below.
+The script in this repo is calibrated for **720x1600**. The original version was calibrated for **1080x2400** — those coordinates are listed in the [table below](#calibrating-coordinates-for-your-phone). If your resolution is neither, you'll need to recalibrate.
 
 ---
 
@@ -87,18 +87,20 @@ unfollow_all.bat
 ```
 
 ### 4. Let it run
-It will remove accounts in batches, restarting the app periodically to avoid glitches, until it hits the max count or runs out of accounts.
+It will remove accounts in batches of 30, restarting the app between batches to avoid glitches, until it reaches the max count or runs out of accounts.
 
 ---
 
 ## The Script (`unfollow_all.bat`)
+
+Calibrated for **720x1600**.
 
 ```bat
 @echo off
 setlocal enabledelayedexpansion
 
 set /a total=0
-set /a batchSize=15
+set /a batchSize=30
 set /a maxTotal=500
 
 :restart_app
@@ -109,23 +111,23 @@ adb shell monkey -p com.snapchat.android -c android.intent.category.LAUNCHER 1
 timeout /t 6 /nobreak >nul
 
 echo Navigating back to Edit screen...
-adb shell input tap 735 2195
+adb shell input tap 490 1530
 timeout /t 2 /nobreak >nul
-adb shell input tap 1000 160
+adb shell input tap 670 113
 timeout /t 2 /nobreak >nul
-adb shell input tap 270 1975
+adb shell input tap 360 1380
 timeout /t 2 /nobreak >nul
-adb shell input tap 1004 150
+adb shell input tap 665 110
 timeout /t 2 /nobreak >nul
 
 echo Starting removal batch...
 for /L %%i in (1,1,%batchSize%) do (
-    adb shell input tap 985 357
-    timeout /t 2 /nobreak >nul
-    adb shell input tap 540 1320
+    adb shell input tap 650 249
+    timeout /t 1 /nobreak >nul
+    adb shell input tap 360 870
     set /a total+=1
     echo Removed account number !total!
-    timeout /t 4 /nobreak >nul
+    timeout /t 2 /nobreak >nul
 )
 
 if !total! LSS %maxTotal% (
@@ -138,11 +140,22 @@ echo All done! Total removed: !total!
 pause
 ```
 
+### Tunable settings
+
+| Setting | Value | Notes |
+|---|---|---|
+| `batchSize` | `30` | Removals per batch before the app is restarted (was 15) |
+| `maxTotal` | `500` | Stop threshold, checked after each batch |
+| Delay between ✕ tap and "Yes" tap | `1s` | Was 2s. Increase if the popup doesn't appear in time |
+| Delay after "Yes" tap | `2s` | Was 4s. Increase if removals are being skipped |
+
+The shorter delays make each batch roughly twice as fast. If your phone is slower, or taps start landing before the UI has updated, raise these values.
+
 ---
 
 ## Calibrating coordinates for your phone
 
-The tap coordinates were derived from a **1080x2400** display (Vivo V20). If your phone has a different resolution, screen density, or UI scale, you'll need to recalibrate:
+The script ships with coordinates for **720x1600**. The original version used a **1080x2400** display (Vivo V20). If your phone has a different resolution, screen density, or UI scale, you'll need to recalibrate:
 
 1. Get your resolution: `adb shell wm size`
 2. Take a screenshot while on the target screen:
@@ -153,14 +166,16 @@ The tap coordinates were derived from a **1080x2400** display (Vivo V20). If you
 4. Hover over the element you want to tap (✕ icon, "Yes" button, Stories tab, 3-dot menu, "Manage accounts I follow" text, "Edit" text) and note the x/y pixel position
 5. Replace the corresponding coordinates in the script
 
-| Element | Approx. coordinate (1080x2400) |
-|---|---|
-| Stories tab (bottom nav) | `735, 2195` |
-| 3-dot menu (top right) | `1000, 160` |
-| "Manage accounts I follow" | `270, 1975` |
-| "Edit" (top right) | `1004, 150` |
-| ✕ icon (top row) | `985, 357` |
-| "Yes" confirm button | `540, 1320` |
+| Element | 720x1600 (current) | 1080x2400 (original) |
+|---|---|---|
+| Stories tab (bottom nav) | `490, 1530` | `735, 2195` |
+| 3-dot menu (top right) | `670, 113` | `1000, 160` |
+| "Manage accounts I follow" | `360, 1380` | `270, 1975` |
+| "Edit" (top right) | `665, 110` | `1004, 150` |
+| ✕ icon (top row) | `650, 249` | `985, 357` |
+| "Yes" confirm button | `360, 870` | `540, 1320` |
+
+> Coordinates don't always scale linearly between resolutions (layout and density differ between devices), so always verify with a screenshot rather than just multiplying.
 
 ---
 
@@ -170,6 +185,7 @@ The tap coordinates were derived from a **1080x2400** display (Vivo V20). If you
 - **No confirmation replay** — once removed, the script cannot re-follow accounts. There is no built-in "dry run" mode.
 - **Screen must stay on and unlocked** — if the phone locks mid-run, taps will land on the lock screen instead.
 - **Notifications can still interfere** even with Airplane Mode if you have other apps generating local alerts — close background apps if issues persist.
+- **`maxTotal` is checked per batch** — with a batch size of 30, a limit of 500 means the script stops at 510, not exactly 500.
 - **This is UI automation, not an API integration** — it is inherently more fragile than a proper API call would be, because none exists for this action.
 
 ---
